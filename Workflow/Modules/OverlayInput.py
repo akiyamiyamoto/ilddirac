@@ -77,6 +77,9 @@ class OverlayInput (ModuleBase):
     self.machine = 'clic_cdr'
     self.pathToOverlayFiles = ''
 
+
+    print "[debug Akiya ] ################### Class OverlayInput was called."
+
   def applicationSpecificInputs(self):
 
     self.pathToOverlayFiles = self.step_commons.get("pathToOverlayFiles", self.pathToOverlayFiles)
@@ -175,6 +178,13 @@ class OverlayInput (ModuleBase):
                                                                                   self.detectormodel,
                                                                                   self.BkgEvtType), 
                                                  100)
+    
+    print "[debug Akiya ] ########### OverlayModule set nbofeventsperfile ="+str(self.nbofeventsperfile)
+    self.nbofeventsperfile=200
+    print "It was reset to 200"
+    print "#############################################"
+
+
     meta['ProdID'] = res
     if self.prodid:
       meta['ProdID'] = self.prodid
@@ -292,6 +302,15 @@ class OverlayInput (ModuleBase):
     self.log.verbose("There are %s signal event" % self.NbSigEvtsPerJob)
     ##Now determine how many files are needed to cover all signal events
     totnboffilestoget = int(ceil(self.NbSigEvtsPerJob * numberofeventstoget / self.nbofeventsperfile))
+
+    print "[debug Akiya ] ##########################"
+    print "Workflow::OverlayInput...."
+    print "totnboffilestoget="+str(totnboffilestoget)
+    print "numberofeventstoget="+str(numberofeventstoget)
+    print "NbSigEvtsPerJob="+str(self.NbSigEvtsPerJob)
+    print "numberofeventsperfile="+str(self.nbofeventsperfile)
+    print "################################################################################" 
+
 
     ##Limit ourself to some configuration maximum
     maxNbFilesToGet = self.ops.getValue("/Overlay/MaxNbFilesToGet", 20)

@@ -16,6 +16,8 @@ from ILCDIRAC.Core.Utilities.LFNPathUtilities import joinPathForMetaData
 import types, string
 from decimal import Decimal
 
+from pprint import pprint
+
 #pylint: disable=W0311
 #pylint: disable=R0902
 #pylint: disable=R0904
@@ -99,7 +101,7 @@ class ILDProductionJob( ProductionJob ):
         """
         return self.setConfig( version )
         
-    def setInputDataQuery( self, metadata ):
+    def setInputDataQuery( self, metadata, number_of_events=0 ):
         """ Define the input data query needed, also get from the data the meta info requested to build the path
         """
         metakeys = metadata.keys()
@@ -126,15 +128,24 @@ class ILDProductionJob( ProductionJob ):
 
         # res = self.fc.findDirectoriesByMetadata( metadata )
 
+        print "[debug Akiya] ###############################"
+        print "metadata"
+        pprint(metadata)
+
         # do i need this?
-        tmp_metadata = {}
-        tmp_metadata.update(metadata)
+        input_search_meta = {}
+        input_search_meta.update(metadata)
         # for kk in ['SoftwareTag', 'ILDConfig']:
         for kk in ['SoftwareTag', 'ILDConfig','ProcessID']:
-            tmp_metadata.pop(kk, None) # why i was dropping ProdID?
+            input_search_meta.pop(kk, None) # why i was dropping ProdID?
 
-        # using tmp_metadata for search dirs (metadata not modified)
-        res = self.fc.findDirectoriesByMetadata( tmp_metadata )
+        print "[debug Akiya] ###############################"
+        print "MetaData for InputDataQuery"
+        pprint(input_search_meta)
+    
+
+        # using input_search_meta for search dirs (metadata not modified)
+        res = self.fc.findDirectoriesByMetadata( input_search_meta )
 
         if not res['OK']:
             return self._reportError( "Error looking up the catalog for available directories" )
@@ -144,6 +155,7 @@ class ILDProductionJob( ProductionJob ):
         compatmeta = {}
 
         print 'dirs found: %d' %len(dirs)
+
         # for d in dirs:
         #     print '%s'%d
         dir_found = False
@@ -174,12 +186,19 @@ class ILDProductionJob( ProductionJob ):
             else:
                 print 'We could not find our target dir and this is not a dryrun: please check'
             
-        print 'self.fc.findFilesByMetadata( %s, "/ilc/prod/ilc" ) '%metadata
+        print 'self.fc.findFilesByMetadata( %s, '%metadata + ' " ' + self.matchToInput + '" ) '
+        print self.matchToInput+" found"
         # get all the files available, if any
-        res = self.fc.findFilesByMetadata( metadata, '/ilc/prod/ilc' )
+#         res = self.fc.findFilesByMetadata( metadata, '/ilc/prod/ilc' )
+        res = self.fc.findFilesByMetadata( input_search_meta, self.matchToInput )
         # res = self.fc.findFilesByMetadata( metadata, '/ilc/user/c/calanchac/stdhep' )
         if not res['OK']:
             return self._reportError( "Could not find the files with this metadata" )
+            exit()
+         
+        print "[debug Akiya] ## "+str(len(res['Value']))+" files were found.  List of found files:"
+        pprint(res['Value'])
+
 
         if len( res['Value'] ):
             my_lfn = res['Value'][0]
@@ -189,7 +208,13 @@ class ILDProductionJob( ProductionJob ):
             res = self.fc.getFileUserMetadata( my_lfn )
             if not res['OK']:
                 return self._reportError( 'Failed to get file metadata, cannot build filename' )
+
             compatmeta.update( res['Value'] )
+
+            # Overwrite NumberOfEvents key, because some time picks up last entry with little nb of events.
+            if number_of_events > 0 : 
+              compatmeta["NumberOfEvents"]=number_of_events
+
             print '[tino debug] Updated compatmeta to: %s' %compatmeta
 
             for k,v in self.compatmeta.items():
@@ -207,6 +232,9 @@ class ILDProductionJob( ProductionJob ):
         print 'compatmeta contains ProcessID? (%s) See below:'%compatmeta
         for k,v in self.compatmeta.items():
             print "compatmeta[%s] %s"%(k,v)
+
+        print "[debug Akiya] ### printing compatmeta..."
+        pprint(compatmeta)
 
         self.log.verbose( "Using %s to build path" % str( compatmeta ) )
         if compatmeta.has_key( 'EvtClass' ):
@@ -249,7 +277,7 @@ class ILDProductionJob( ProductionJob ):
             if type( compatmeta['ProcessID'] ) == type( [] ):
                 self.processID = int( compatmeta['ProcessID'][0] )
         else:
-            return self._reportError( "Cannot find ProcessID, it's mandatory for path definition" )
+            return self._reportError( "Cannot find neither ProcessID nor GenProcessID, it's mandatory for path definition" )
                 
                 
         if compatmeta.has_key( "Energy" ):
@@ -293,10 +321,13 @@ class ILDProductionJob( ProductionJob ):
 
         self.energy = Decimal( self.energycat )    
         
-        self.inputBKSelection = metadata
+        self.inputBKSelection = input_search_meta
         self.prodparameters["FCInputQuery"] = self.inputBKSelection
 
         self.inputdataquery = True
+
+        print "[debug Akiya] ################### inputDataQuery Successful.."
+
         return S_OK()        
         
     def _addRealFinalization( self ):
@@ -510,6 +541,8 @@ class ILDProductionJob( ProductionJob ):
         if 'PolarizationB2' in self.compatmeta:
             self.basename += self.compatmeta['PolarizationB2']
 
+        print "self.baename is "+self.basename
+
         
         if not self.machine[-1] == '/':
             self.machine += "/"
@@ -540,6 +573,9 @@ class ILDProductionJob( ProductionJob ):
                 detectormeta = self.detector.rstrip( "/" )
             
         path = self.basepath
+   
+        print "path is "+path
+
         # ##Need to resolve file names and paths
         # TODO: change basepath for ILD Don't forget LOG PATH in ProductionOutpuData module
         if hasattr( application, "setOutputRecFile" ) and not application.willBeCut:
@@ -568,6 +604,11 @@ class ILDProductionJob( ProductionJob ):
             pathRec = joinPathForMetaData( self.basepath , 'rec' , energypath , self.evttype , self.detector , softwarepath)
             # pathRec = joinPathForMetaData( self.basepath , 'rec' , energypath , self.evttype , self.detector , softwarepath)
             application.setOutputRecFile( fname, pathRec )
+            
+            print "## pathRec="+pathRec
+            print "## fname="+fname
+
+
             self.finalpaths.append( pathRec )
             # metaBasePathDst = joinPathForMetaData(self.basepath, 'dst', energypath, self.evttype)
             metaBasePathDst = joinPathForMetaData(self.basepath, 'dst', energypath)

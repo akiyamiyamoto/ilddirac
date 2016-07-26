@@ -26,6 +26,8 @@ from DIRAC                                                  import S_OK, S_ERROR
 import os, shutil, types
 from decimal import Decimal
 
+from pprint import pprint
+
 
 class ProductionJob(Job):
   """ Production job class. Suitable for CLIC studies. Need to sub class and overload for other clients.
@@ -392,6 +394,10 @@ class ProductionJob(Job):
     
     workflowName = self.workflow.getName()
     fileName = '%s.xml' % workflowName
+
+    print "[debug Akiya] ############## going to create Workflow ####"
+    print "workflowName="+workflowName+"  fileName="+fileName
+
     self.log.verbose('Workflow XML file name is:', '%s' % fileName)
     try:
       self.createWorkflow()
@@ -404,11 +410,13 @@ class ProductionJob(Job):
     if not name:
       name = workflowName
 
+    print "[debug Akiya] ### Going to call getTransformationStats...name is "+name
 
     res = self.trc.getTransformationStats(name)
     if res['OK']:
       return self._reportError("Transformation with name %s already exists! Cannot proceed." % name)
 
+    print "[debug Akiya] ########### Transformation will be created.... name="+name
     
     
     ###Create Tranformation
@@ -506,6 +514,9 @@ class ProductionJob(Job):
   def finalizeProd(self, prodid = None, prodinfo = None):
     """ Finalize definition: submit to Transformation service and register metadata
     """
+
+    print "[debug Akiya] ###########  ProductionJob::finalizeProd will be executed."
+
     currtrans = 0
     if self.currtrans:
       if not self.dryrun:
@@ -590,7 +601,9 @@ class ProductionJob(Job):
     
     if self.dryrun or prevent_registration:
       self.log.notice("Would have created and registered the following", str(self.finalMetaDict))
+      pprint(self.finalMetaDict)
       self.log.notice("Would have set this as non searchable metadata", str(self.finalMetaDictNonSearch))
+      pprint(self.finalMetaDictNonSearch)
       return S_OK()
     
     failed = []
